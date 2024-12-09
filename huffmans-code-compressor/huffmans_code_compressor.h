@@ -8,6 +8,8 @@
 #include <unordered_map>
 #include <vector>
 
+using namespace std::literals;
+
 struct Node {
     char ch = '\0';
     int freq = 0;
@@ -15,16 +17,9 @@ struct Node {
     Node* right = nullptr;    
 };
 
-Node* CreateNode(char ch, int freq, Node* left, Node* right);
-Node* InsertNode(Node* root, char ch, char value);
-Node* InsertLeftNode(Node* root, char ch);
-Node* InsertRightNode(Node* root, char ch);
-
 struct NodeComp {
     bool operator() (Node* lhs, Node* rhs);
 };
-
-
 
 class BinaryTree {
 public:
@@ -42,28 +37,32 @@ private:
 class HuffmansCodeCompressor {
 public:
     HuffmansCodeCompressor() = default;
-    HuffmansCodeCompressor(std::filesystem::path input_file_path, std::filesystem::path output_file_path);
+    HuffmansCodeCompressor(std::filesystem::path input_file_path);
+    HuffmansCodeCompressor(std::filesystem::path input_file_path, std::string output_file_name);
+
     void SetIputFilePath(std::filesystem::path input_file_path);
-    void SetOutputFilePath(std::filesystem::path output_file_path);
-    bool CompressDocument();
-    bool DecompressDocument();
+    void SetOutputFileName(std::string output_file_name);
     
+    bool CompressDocument();
+    bool DecompressDocument();    
     
 private:
-    std::filesystem::path input_file_path_, output_file_path_;
+    std::filesystem::path input_file_path_;
+    std::string output_file_name_;
     std::map<char,unsigned int> char_to_freq_;
     std::unordered_map<char, std::string> char_to_code_;
     BinaryTree tree_;
+    std::string key_ = "@HCCKeyCheck@"s;
 
-    void Encode(Node* root, std::string str);
-    void Decode(Node* root, int& index, const std::string& str, std::ostream& output);
-
-    std::vector<std::string> ReadDocument(const std::filesystem::path& doc);
-    std::string ReadCompressedDocument(const std::filesystem::path& doc);
-    void SetCompressor(const std::string& settings);
-    std::string CreateCompressorSettings();    
+    std::vector<std::string> ReadDocument(const std::filesystem::path& doc);    
     void ComputeCharFreq(const std::vector<std::string>& strings);
     void BuildTree();
-    void BuildTreeByCode();
+    void Encode(Node* root, std::string str);
+    std::string CreateCompressorSettings();
     const std::string& GetCodeByChar(char ch) const;
+
+    std::string ReadCompressedDocument(const std::filesystem::path& doc);
+    void SetCompressor(const std::string& settings);
+    void BuildTreeByCode();
+    void Decode(Node* root, int& index, const std::string& str, std::ostream& output);
 };

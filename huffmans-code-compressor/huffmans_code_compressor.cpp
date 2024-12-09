@@ -10,23 +10,12 @@
 using namespace std;
 using filesystem::path;
 
-Node* CreateNode(char ch, int freq, Node* left, Node* right) {
-    Node* node = new Node{ch, freq, left, right};
-
-    return node;
+bool NodeComp::operator()(Node* lhs, Node* rhs) {
+    return lhs->freq > rhs->freq;
 }
 
-Node* OpenOrInsertNode(Node* root, char ch, char value) {
-    if (value == '0') {
-        if (!root->left) {
-            return InsertLeftNode(root, ch);
-        }
-        return root->left;
-    }
-    if (!root->right) {
-        return InsertRightNode(root, ch);
-    }
-    return root->right;
+BinaryTree::~BinaryTree() {
+    DeleteNode(root_);
 }
 
 Node* BinaryTree::GetRoot() {
@@ -35,10 +24,6 @@ Node* BinaryTree::GetRoot() {
 
 void BinaryTree::SetRoot(Node* root) {
     root_ = root;
-}
-
-BinaryTree::~BinaryTree() {
-    DeleteNode(root_);
 }
 
 void BinaryTree::DeleteNode(Node* root) {
@@ -52,56 +37,50 @@ void BinaryTree::DeleteNode(Node* root) {
     delete root;
 }
 
-Node* InsertLeftNode(Node* root, char ch) {
-    root->left = CreateNode(ch, 0, nullptr, nullptr);
-    return root->left;
-}
+HuffmansCodeCompressor::HuffmansCodeCompressor(path input_file_path)
+    : input_file_path_(input_file_path) {}
 
-Node* InsertRightNode(Node* root, char ch) {
-    root->right = CreateNode(ch, 0, nullptr, nullptr);
-    return root->right;
-}
-
-
-bool NodeComp::operator()(Node* lhs, Node* rhs) {
-    return lhs->freq > rhs->freq;
-}
-
-HuffmansCodeCompressor::HuffmansCodeCompressor(path input_file_path, path output_file_path)
-    : input_file_path_(input_file_path), output_file_path_(output_file_path) {}
+HuffmansCodeCompressor::HuffmansCodeCompressor(std::filesystem::path input_file_path, std::string output_file_name) 
+    : input_file_path_(input_file_path), output_file_name_(output_file_name) {}
 
 void HuffmansCodeCompressor::SetIputFilePath(path input_file_path){
     input_file_path_ = input_file_path;
 }
 
-void HuffmansCodeCompressor::SetOutputFilePath(path output_file_path) {
-    output_file_path_ = output_file_path;
+void HuffmansCodeCompressor::SetOutputFileName(string output_file_name) {
+    output_file_name_ = output_file_name;
 }
 
-void HuffmansCodeCompressor::Encode(Node* root, string str) {
-    if (!root) return;
-
-    if (!root->left && !root->right) {
-        char_to_code_[root->ch] = str;
+vector<string> HuffmansCodeCompressor::ReadDocument(const path& doc) {
+    if (doc.extension().string() != ".txt"sv) {
+        cout << "Invalid file type. Select the file with the '.txt' extension"sv << endl;
+        return {};
+    }
+    ifstream input(doc, ios::in);
+    if (!input) {
+        throw ios_base::failure("Failed to open document "s + doc.filename().string());
+    }
+    vector<string> result;
+    string str;
+    while (getline(input, str)) {
+        result.push_back(str + '\n');
     }
 
-    Encode(root->left, str + '0');
-    Encode(root->right, str + '1');
+    return result;
 }
 
-void HuffmansCodeCompressor::Decode(Node* root, int& index, const string& str, ostream& output) {
-    if (!root) return;
-    if (!root->left && !root->right) {
-        output << root->ch;
-        return;
+void HuffmansCodeCompressor::ComputeCharFreq(const vector<string>& strings) {
+    for (const auto& str : strings) {
+        for (char ch : str) {
+            ++char_to_freq_[ch];
+        }
     }
-    int current_index = index++;
-    char ch = str[current_index];
-    if (ch == '0') {
-        Decode(root->left, index, str, output);
-    } else {
-        Decode(root->right, index, str, output);
-    }
+}
+
+Node* CreateNode(char ch, int freq, Node* left, Node* right) {
+    Node* node = new Node{ch, freq, left, right};
+
+    return node;
 }
 
 void HuffmansCodeCompressor::BuildTree() {    
@@ -122,42 +101,132 @@ void HuffmansCodeCompressor::BuildTree() {
     tree_.SetRoot(nodes_queue.top());
 }
 
-void HuffmansCodeCompressor::BuildTreeByCode() {
-    for (const auto& [ch, code] : char_to_code_) {
-        Node* root = tree_.GetRoot();
-        for (char bit : code) {
-            root = OpenOrInsertNode(root, '\0', bit);
-        }
-        root->ch = ch;
+void HuffmansCodeCompressor::Encode(Node* root, string str) {
+    if (!root) return;
+
+    if (!root->left && !root->right) {
+        char_to_code_[root->ch] = str;
     }
+
+    Encode(root->left, str + '0');
+    Encode(root->right, str + '1');
 }
 
-vector<string> HuffmansCodeCompressor::ReadDocument(const path& doc) {
-    ifstream input(doc, ios::in);
-    if (!input) {
-        throw ios_base::failure("Failed to open document "s + doc.filename().string());
-    }
-    vector<string> result;
-    string str;
-    while (getline(input, str)) {
-        result.push_back(str);
+string HuffmansCodeCompressor::CreateCompressorSettings() {
+    string result = key_ + '\n';
+    bool is_first = true;
+
+    for (const auto& [ch, code] : char_to_code_) {
+        if (!is_first) {
+            result += ' ';
+        }
+
+        switch (ch) {
+            case ('\n') :
+                result += "\\n"s + code;
+                break;
+            case ('\r') :
+                result += "\\r"s + code;
+                break;   
+            case ('\t') :
+                result += "\\t"s + code;
+                break;   
+            case ('\\\\') :
+                result += "\\\\"s + code;
+                break;
+            default :
+                result += ch + code;
+                break;
+        }
+
+        is_first = false;
     }
 
+    result += '\n';
     return result;
 }
 
+const std::string& HuffmansCodeCompressor::GetCodeByChar(char ch) const{
+    static string empty_string;
+    auto it = char_to_code_.find(ch);
+    if (it != char_to_code_.end()) {
+        return it->second;
+    }    
+    return empty_string;
+}
+
+path SetOutputFilePath(string output_file_name, string extention, path input_file_path) {
+    path result = input_file_path.parent_path().string() 
+        + (output_file_name.empty() ? "\\output"s + extention : "\\"s + output_file_name + extention);
+    return result;
+}
+
+bool HuffmansCodeCompressor::CompressDocument() {
+    if (input_file_path_.empty()) {
+        cout << "Set the input and files path"s << endl;
+        return false;
+    }
+    auto text = ReadDocument(input_file_path_);
+    if (text.empty()) {
+        cout << "Failed to compress file: " + input_file_path_.filename().string() << endl;
+    }
+    ComputeCharFreq(text);
+    BuildTree();
+    Encode(tree_.GetRoot(), "");
+    path output_file_path = SetOutputFilePath(output_file_name_, ".hcc"s, input_file_path_);
+    ofstream output (output_file_path, ios::binary);
+    if (!output) {
+        cout << "Failed to create document: " + output_file_path.filename().string() << endl;
+        return false;
+       
+    }
+
+    string settings = CreateCompressorSettings();
+    output << settings;
+
+    vector<uint8_t> binary_buffer;
+    uint8_t current_byte = 0;
+    int bit_count = 0;
+    for (const auto& str : text) {
+        for (char ch : str) {
+            string code = GetCodeByChar(ch);
+            for (char bit : code) {      
+                current_byte = (current_byte << 1) | (bit - '0');
+                ++bit_count;
+                if (bit_count == 8) {
+                    binary_buffer.push_back(current_byte);
+                    current_byte = 0;
+                    bit_count = 0;
+                }
+            }
+        }
+    }
+    if (bit_count > 0) {
+        current_byte <<= (8 - bit_count);
+        binary_buffer.push_back(current_byte);
+    }
+    output.write(reinterpret_cast<char*>(binary_buffer.data()), binary_buffer.size());
+    output.close();
+
+    return true;
+}
+
 string HuffmansCodeCompressor::ReadCompressedDocument(const path& doc) {
-    string settings;
+    if (doc.extension().string() != ".hcc"sv) {
+        cout << "Invalid file type. Select the file with the '.hcc' extension"sv << endl;
+        return {};
+    }
     ifstream input(doc, ios::binary);
     if (!input) {
         throw ios_base::failure("Failed to open document "s + doc.filename().string());
     }
-
+    string settings;
     getline(input, settings);
-    if (settings.empty()) {
-        cout << "The compressor settings could not be read. Select the file compressed by HuffmansCodeCompressor"s << endl;
+    if (settings != key_) {
+        cout << "The compressor settings could not be read. Select the file compressed by Huffman's Code Compressor"sv << endl;
         return {};
     }
+    getline(input, settings);
     SetCompressor(settings);
 
     string result;
@@ -171,6 +240,39 @@ string HuffmansCodeCompressor::ReadCompressedDocument(const path& doc) {
     input.close();
 
     return result;
+}
+
+Node* InsertLeftNode(Node* root, char ch) {
+    root->left = CreateNode(ch, 0, nullptr, nullptr);
+    return root->left;
+}
+
+Node* InsertRightNode(Node* root, char ch) {
+    root->right = CreateNode(ch, 0, nullptr, nullptr);
+    return root->right;
+}
+
+Node* OpenOrInsertNode(Node* root, char ch, char value) {
+    if (value == '0') {
+        if (!root->left) {
+            return InsertLeftNode(root, ch);
+        }
+        return root->left;
+    }
+    if (!root->right) {
+        return InsertRightNode(root, ch);
+    }
+    return root->right;
+}
+
+void HuffmansCodeCompressor::BuildTreeByCode() {
+    for (const auto& [ch, code] : char_to_code_) {
+        Node* root = tree_.GetRoot();
+        for (char bit : code) {
+            root = OpenOrInsertNode(root, '\0', bit);
+        }
+        root->ch = ch;
+    }
 }
 
 void HuffmansCodeCompressor::SetCompressor(const string& settings) {
@@ -214,124 +316,42 @@ void HuffmansCodeCompressor::SetCompressor(const string& settings) {
         string code = str.substr(1);
 
         char_to_code_[ch] = code;
-        //code_to_char_[code] = ch;
     }
 
     tree_.SetRoot(new Node());
     BuildTreeByCode();
 }
 
-string HuffmansCodeCompressor::CreateCompressorSettings() {
-    string result;
-    bool is_first = true;
-
-    for (const auto& [ch, code] : char_to_code_) {
-        if (!is_first) {
-            result += ' ';
-        }
-
-        switch (ch) {
-            case ('\n') :
-                result += "\\n"s + code;
-                break;
-            case ('\r') :
-                result += "\\r"s + code;
-                break;   
-            case ('\t') :
-                result += "\\t"s + code;
-                break;   
-            case ('\\\\') :
-                result += "\\\\"s + code;
-                break;
-            default :
-                result += ch + code;
-                break;
-        }
-
-        is_first = false;
+void HuffmansCodeCompressor::Decode(Node* root, int& index, const string& str, ostream& output) {
+    if (!root) return;
+    if (!root->left && !root->right) {
+        output << root->ch;
+        return;
     }
-
-    result += '\n';
-    return result;
-}
-
-void HuffmansCodeCompressor::ComputeCharFreq(const vector<string>& strings) {
-    for (const auto& str : strings) {
-        for (char ch : str) {
-            ++char_to_freq_[ch];
-        }
+    char ch = str[index++];
+    if (ch == '0') {
+        Decode(root->left, index, str, output);
+    } else {
+        Decode(root->right, index, str, output);
     }
-}
-
-const std::string& HuffmansCodeCompressor::GetCodeByChar(char ch) const{
-    static string empty_string;
-    auto it = char_to_code_.find(ch);
-    if (it != char_to_code_.end()) {
-        return it->second;
-    }    
-    return empty_string;
-}
-
-bool HuffmansCodeCompressor::CompressDocument() {
-    if (input_file_path_.empty() || output_file_path_.empty()) {
-        cout << "Set the input and output files paths"s << endl;
-        return false;
-    }
-    auto text = ReadDocument(input_file_path_);
-    ComputeCharFreq(text);
-    BuildTree();
-    Encode(tree_.GetRoot(), "");
-    ofstream output (output_file_path_, ios::binary);
-    if (!output) {
-        cout << "Failed to create document: " + output_file_path_.filename().string() << endl;
-        return false;
-       
-    }
-    string settings = CreateCompressorSettings();
-    output << settings;
-
-    vector<uint8_t> binary_buffer;
-    uint8_t current_byte = 0;
-    int bit_count = 0;
-    for (const auto& str : text) {
-        for (char ch : str) {
-            string code = GetCodeByChar(ch);
-            for (char bit : code) {      
-                current_byte = (current_byte << 1) | (bit - '0');
-                ++bit_count;
-                if (bit_count == 8) {
-                    binary_buffer.push_back(current_byte);
-                    current_byte = 0;
-                    bit_count = 0;
-                }
-            }
-        }
-    }
-    if (bit_count > 0) {
-        current_byte <<= (8 - bit_count);
-        binary_buffer.push_back(current_byte);
-    }
-    output.write(reinterpret_cast<char*>(binary_buffer.data()), binary_buffer.size());
-    output.close();
-
-    return true;
 }
 
 bool HuffmansCodeCompressor::DecompressDocument() {
-    if (input_file_path_.empty() || output_file_path_.empty()) {
-        cout << "Set the input and output files paths"s << endl;
+    if (input_file_path_.empty()) {
+        cout << "Set the input file path"s << endl;
         return false;
     }
     
     string compressed_text = ReadCompressedDocument(input_file_path_);
+    path output_file_path = SetOutputFilePath(output_file_name_, ".txt"s, input_file_path_);
 
-    ofstream output(output_file_path_, ios::out);
+    ofstream output(output_file_path, ios::out);
     if (!output) {
-        cout << "Failed to create document: " + output_file_path_.filename().string() << endl;
+        cout << "Failed to create document: " + output_file_path.filename().string() << endl;
         return false;
     }
     int index = 0;
-    while (index != compressed_text.size() - 1) {
+    while (index < compressed_text.size()) {
         Decode(tree_.GetRoot(), index, compressed_text, output);
     }
     output.close();
