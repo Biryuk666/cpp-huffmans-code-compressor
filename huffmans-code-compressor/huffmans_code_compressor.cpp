@@ -38,13 +38,17 @@ void BinaryTree::DeleteNode(Node* root) {
 }
 
 HuffmansCodeCompressor::HuffmansCodeCompressor(path input_file_path)
-    : input_file_path_(input_file_path) {}
+    : input_file_path_(input_file_path), output_file_name_("output"s) {}
 
-HuffmansCodeCompressor::HuffmansCodeCompressor(std::filesystem::path input_file_path, std::string output_file_name) 
+HuffmansCodeCompressor::HuffmansCodeCompressor(path input_file_path, string output_file_name) 
     : input_file_path_(input_file_path), output_file_name_(output_file_name) {}
+
 
 void HuffmansCodeCompressor::SetIputFilePath(path input_file_path){
     input_file_path_ = input_file_path;
+    if (tree_.GetRoot()) {
+        tree_.DeleteNode(tree_.GetRoot());
+    }
 }
 
 void HuffmansCodeCompressor::SetOutputFileName(string output_file_name) {
@@ -156,8 +160,7 @@ const std::string& HuffmansCodeCompressor::GetCodeByChar(char ch) const{
 }
 
 path SetOutputFilePath(string output_file_name, string extention, path input_file_path) {
-    path result = input_file_path.parent_path().string() 
-        + (output_file_name.empty() ? "\\output"s + extention : "\\"s + output_file_name + extention);
+    path result = input_file_path.parent_path().string() + "\\"s + output_file_name + extention;
     return result;
 }
 
@@ -266,6 +269,7 @@ Node* OpenOrInsertNode(Node* root, char ch, char value) {
 }
 
 void HuffmansCodeCompressor::BuildTreeByCode() {
+    tree_.SetRoot(new Node());
     for (const auto& [ch, code] : char_to_code_) {
         Node* root = tree_.GetRoot();
         for (char bit : code) {
@@ -318,7 +322,6 @@ void HuffmansCodeCompressor::SetCompressor(const string& settings) {
         char_to_code_[ch] = code;
     }
 
-    tree_.SetRoot(new Node());
     BuildTreeByCode();
 }
 

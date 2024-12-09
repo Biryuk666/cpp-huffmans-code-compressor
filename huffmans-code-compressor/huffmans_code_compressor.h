@@ -26,19 +26,18 @@ public:
     ~BinaryTree();
 
     Node* GetRoot();
-    void SetRoot(Node* root);    
+    void SetRoot(Node* root);
+    void DeleteNode(Node* root);
 
 private:
-    Node* root_;
-
-    void DeleteNode(Node* root);
+    Node* root_ = nullptr;
 };
 
 class HuffmansCodeCompressor {
 public:
     HuffmansCodeCompressor() = default;
     HuffmansCodeCompressor(std::filesystem::path input_file_path);
-    HuffmansCodeCompressor(std::filesystem::path input_file_path, std::string output_file_name);
+    HuffmansCodeCompressor(std::filesystem::path input_file_path, std::string output_file_name);    
 
     void SetIputFilePath(std::filesystem::path input_file_path);
     void SetOutputFileName(std::string output_file_name);
