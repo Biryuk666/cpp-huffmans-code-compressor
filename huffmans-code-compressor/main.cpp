@@ -14,8 +14,14 @@ int main() {
     path path = input_file_path;
     HuffmansCodeCompressor compressor(input_file_path);
     compressor.CompressDocument();
-    string output_file = path.parent_path().string() + "\\output.hcc";
-    input_file_path = output_file;
+
+    input_file_path = path.parent_path().string() + "\\output.hcc"s;
     HuffmansCodeCompressor decompressor(input_file_path);
     decompressor.DecompressDocument();
+    
+    string output_file = "myfile"s;
+    input_file_path = path.parent_path().string() + "\\output.txt"s;
+    compressor.SetIputFilePath(input_file_path);
+    compressor.SetOutputFileName(output_file);
+    compressor.CompressDocument();
 }

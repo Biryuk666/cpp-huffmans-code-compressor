@@ -26,8 +26,9 @@ public:
     ~BinaryTree();
 
     Node* GetRoot();
+    Node*& GetRootRef();    
     void SetRoot(Node* root);
-    void DeleteNode(Node* root);
+    void DeleteNode(Node*& root);
 
 private:
     Node* root_ = nullptr;

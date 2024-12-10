@@ -22,11 +22,15 @@ Node* BinaryTree::GetRoot() {
     return root_;
 }
 
+Node*& BinaryTree::GetRootRef() {
+    return root_;
+}
+
 void BinaryTree::SetRoot(Node* root) {
     root_ = root;
 }
 
-void BinaryTree::DeleteNode(Node* root) {
+void BinaryTree::DeleteNode(Node*& root) {
     if (root->left) {
         DeleteNode(root-> left);
     }
@@ -35,6 +39,7 @@ void BinaryTree::DeleteNode(Node* root) {
     }
 
     delete root;
+    root = nullptr;
 }
 
 HuffmansCodeCompressor::HuffmansCodeCompressor(path input_file_path)
@@ -47,7 +52,7 @@ HuffmansCodeCompressor::HuffmansCodeCompressor(path input_file_path, string outp
 void HuffmansCodeCompressor::SetIputFilePath(path input_file_path){
     input_file_path_ = input_file_path;
     if (tree_.GetRoot()) {
-        tree_.DeleteNode(tree_.GetRoot());
+        tree_.DeleteNode(tree_.GetRootRef());
     }
 }
 
@@ -166,12 +171,13 @@ path SetOutputFilePath(string output_file_name, string extention, path input_fil
 
 bool HuffmansCodeCompressor::CompressDocument() {
     if (input_file_path_.empty()) {
-        cout << "Set the input and files path"s << endl;
+        cout << "Set the input file path"s << endl;
         return false;
     }
     auto text = ReadDocument(input_file_path_);
     if (text.empty()) {
         cout << "Failed to compress file: " + input_file_path_.filename().string() << endl;
+        return false;
     }
     ComputeCharFreq(text);
     BuildTree();
