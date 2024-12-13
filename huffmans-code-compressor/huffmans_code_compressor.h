@@ -64,5 +64,5 @@ private:
     std::string ReadCompressedDocument(const std::filesystem::path& doc);
     void SetCompressor(const std::string& settings);
     void BuildTreeByCode();
-    void Decode(Node* root, int& index, const std::string& str, std::ostream& output);
+    void Decode(Node* root, int& index, const std::string& str, std::vector<char>& result);
 };

@@ -72,10 +72,10 @@ vector<string> HuffmansCodeCompressor::ReadDocument(const path& doc) {
     }
     vector<string> result;
     string str;
-    while (getline(input, str)) {
+
+    while (getline(input, str)) {        
         result.push_back(str + '\n');
     }
-    result.back().back() = '/0';
 
     return result;
 }
@@ -133,6 +133,8 @@ string HuffmansCodeCompressor::CreateCompressorSettings() {
         }
 
         switch (ch) {
+            case ('\0') :
+                result += "\\0"s + code;
             case ('\n') :
                 result += "\\n"s + code;
                 break;
@@ -144,6 +146,12 @@ string HuffmansCodeCompressor::CreateCompressorSettings() {
                 break;   
             case ('\\\\') :
                 result += "\\\\"s + code;
+                break;
+            case ('0') :
+                result += "'0'" + code;
+                break;
+            case ('1') :
+                result += "'1'" + code;
                 break;
             default :
                 result += ch + code;
@@ -307,6 +315,10 @@ void HuffmansCodeCompressor::SetCompressor(const string& settings) {
         if (ch == '\\') {
 
             switch(str[1]) {
+                case ('0') :
+                    ch = '\0';
+                    str = str.substr(1);
+                    break;
                 case ('n') :
                     ch = '\n';
                     str = str.substr(1);
@@ -326,6 +338,10 @@ void HuffmansCodeCompressor::SetCompressor(const string& settings) {
                 default :
                     break;
             }
+        } else if (ch == '\'' && str[2] == '\'') {
+            ch = str[1];
+            char_to_code_[ch] = str.substr(3);
+            continue;
         } else if (ch == '0' || ch == '1') {
             ch = ' ';
             char_to_code_[ch] = str;
@@ -340,17 +356,17 @@ void HuffmansCodeCompressor::SetCompressor(const string& settings) {
     BuildTreeByCode();
 }
 
-void HuffmansCodeCompressor::Decode(Node* root, int& index, const string& str, ostream& output) {
+void HuffmansCodeCompressor::Decode(Node* root, int& index, const string& str, vector<char>& result) {
     if (!root) return;
     if (!root->left && !root->right) {
-        output << root->ch;
+        result.push_back(root->ch);
         return;
     }
     char ch = str[index++];
     if (ch == '0') {
-        Decode(root->left, index, str, output);
+        Decode(root->left, index, str, result);
     } else {
-        Decode(root->right, index, str, output);
+        Decode(root->right, index, str, result);
     }
 }
 
@@ -368,9 +384,19 @@ bool HuffmansCodeCompressor::DecompressDocument() {
         cout << "Failed to create document: " + output_file_path.filename().string() << endl;
         return false;
     }
+    vector<char> result;
     int index = 0;
     while (index < compressed_text.size()) {
-        Decode(tree_.GetRoot(), index, compressed_text, output);
+        Decode(tree_.GetRoot(), index, compressed_text, result);
+    }
+    
+    while (result.back() != '\n') {
+        result.pop_back();
+    }
+    result.pop_back();
+
+    for (char ch : result) {
+        output.put(ch);
     }
     output.close();
 
