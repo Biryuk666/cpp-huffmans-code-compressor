@@ -1,4 +1,5 @@
-#include "Huffmans_code_compressor.h"
+#include "huffmans_code_compressor.h"
+#include "saveload.h"
 
 #include <iostream>
 #include <iterator>
@@ -74,6 +75,7 @@ vector<string> HuffmansCodeCompressor::ReadDocument(const path& doc) {
     while (getline(input, str)) {
         result.push_back(str + '\n');
     }
+    result.back().back() = '/0';
 
     return result;
 }
@@ -122,7 +124,7 @@ void HuffmansCodeCompressor::Encode(Node* root, string str) {
 }
 
 string HuffmansCodeCompressor::CreateCompressorSettings() {
-    string result = key_ + '\n';
+    string result;
     bool is_first = true;
 
     for (const auto& [ch, code] : char_to_code_) {
@@ -190,8 +192,9 @@ bool HuffmansCodeCompressor::CompressDocument() {
        
     }
 
+    Serialize(key_, output);
     string settings = CreateCompressorSettings();
-    output << settings;
+    Serialize(settings, output);
 
     vector<uint8_t> binary_buffer;
     uint8_t current_byte = 0;
@@ -214,7 +217,7 @@ bool HuffmansCodeCompressor::CompressDocument() {
         current_byte <<= (8 - bit_count);
         binary_buffer.push_back(current_byte);
     }
-    output.write(reinterpret_cast<char*>(binary_buffer.data()), binary_buffer.size());
+    Serialize(binary_buffer, output);
     output.close();
 
     return true;
@@ -229,24 +232,30 @@ string HuffmansCodeCompressor::ReadCompressedDocument(const path& doc) {
     if (!input) {
         throw ios_base::failure("Failed to open document "s + doc.filename().string());
     }
+    string key;
+    Deserialize(input, key);
+    if (key != key_) {
+        cout << "The key could not be read from the "s + input_file_path_.filename().string() + " document. Select the file compressed by Huffman's Code Compressor"s << endl;
+        return {};
+    }
     string settings;
-    getline(input, settings);
-    if (settings != key_) {
+    Deserialize(input, settings);
+    if (settings.empty()) {
         cout << "The compressor settings could not be read. Select the file compressed by Huffman's Code Compressor"sv << endl;
         return {};
     }
-    getline(input, settings);
     SetCompressor(settings);
 
-    string result;
-    char byte;
+    string compressed_text;
+    Deserialize(input, compressed_text);
+    input.close();
 
-    while (input.read(reinterpret_cast<char*>(&byte), sizeof(byte))) {
+    string result;
+    for (char byte : compressed_text) {
         for (int i = 7; i >= 0; --i) {
             result += ((byte >> i) & 1) ? '1' : '0';
         }
     }
-    input.close();
 
     return result;
 }
